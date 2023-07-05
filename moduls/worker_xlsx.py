@@ -15,6 +15,7 @@ class XLSX_Data:
     NAME_PRODUCT = 12
     NUM_ORDER = 20
     CONTROL_KG = 19
+    NAME_COL = 'U'
     def __new__(cls, data, number, *args, **kwargs):
         res = list(map(lambda x: x.value, data))
         if cls.control_line(res):
@@ -92,18 +93,35 @@ class POKOM_Rewriter:
             # TODO
             # выбрать клиента, для использования соответствующего класса
             pass
-        self.write_file_name = POKOM_Reader(write_name_file)
+        self.write_file = POKOM_Reader(write_name_file)
         for i in self.read_file.all_rows:
-            for j in self.write_file_name.all_rows:
-                print(i, j)
-    
+            flag = False
+            for j in self.write_file.all_rows:
+                if i == j and i.num_order:
+                    flag = True
+                    #XLSX_Writer(self.write_file.ws, j, i.num_order)
+                    self.write(j, i.num_order)
+                    # TODO
+                    # добавить в треккер изменения (Tracker)
+                    continue
+            if not flag and i.num_order: # ТРЕБУЕТСЯ ПРОВЕРИТЬ ПРАВИЛЬНОСТЬ ПРОВЕРКИ!!!
+                # TODO
+                # добавить в треккер ошибку (Tracker)
+                print('NOT FOUND')
+    # СОХРАНИТЬ изменени в файлах
+        self.read_file.wb.save(read_name_file)
+        self.write_file.wb.save(write_name_file)
+
+
+    def write(self, obj, num):
+        self.write_file.ws[obj.NAME_COL + str(obj.num_row)] = num
+
+
+class XLSX_Writer:
+    def __init__(self, sheet, obj_to, num_order):
+        sheet[obj_to.NAME_COL + str(obj_to.num_row)] = num_order
 
 
 class Tracker:
     '''Создает текстовый файл с результатами переноса данных (в т.ч. и ошибками)'''
-
-# сравнение
-# hash(данные из строки) == hash(XLSX_Data)
-# или
-# XLSX_Data == данные из строки
-# ПОДУМАТЬ!!!
+    pass
