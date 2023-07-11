@@ -182,12 +182,15 @@ class POKOM_Rewriter:
                 obj2 = str(j)
                 if i == j and i.num_order:
                     flag = True
+                    if self.write_file.ws[j.NAME_COL + str(j.num_row)].value:
+                        self.tracker.error.append(f'Объект - {obj1} в количестве {i.num_order} не добавлен, т.к. ячейка уже содержит значение {self.write_file.ws[j.NAME_COL + str(j.num_row)].value}.')
+                        continue
                     self.write(j, i.num_order)
                     self.tracker.message.append(f'Перенос данных из {obj1} ==> {obj2}, в количестве {i.num_order}')
                     self.tracker.wight2 += i.num_order
                     continue
             if not flag and i.num_order: # ТРЕБУЕТСЯ ПРОВЕРИТЬ ПРАВИЛЬНОСТЬ ПРОВЕРКИ!!!
-                self.tracker.error.append(f'Объект - {obj1} в количестве {i.num_order} не найден.')
+                self.tracker.error.append(f'Объект - {obj1} в количестве {i.num_order} НЕ НАЙДЕН.')
         self.read_file.wb.save(read_name_file)
         self.write_file.wb.save(write_name_file)
         self.tracker.wight1 = self.read_file()
