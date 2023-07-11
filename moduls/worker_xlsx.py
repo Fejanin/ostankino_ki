@@ -34,7 +34,7 @@ class XLSX_Data:
 
 
     def __str__(self):
-        return f'Строка - {self.num_row}; наименование - {self.product}.'
+        return f'Строка - {self.num_row}; наименование - {self.product}'
 
 
     '''
@@ -148,7 +148,7 @@ class OneCData:
 
 
     def __str__(self):
-        return f'Строка - {self.num_row}; наименование - {self.product}.'
+        return f'Строка - {self.num_row}; наименование - {self.product}'
 
 
     def __eq__(self, obj):
