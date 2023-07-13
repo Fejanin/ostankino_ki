@@ -28,6 +28,7 @@ class XLSX_Data:
 
 
     def read_line(self, data):
+        '''Считываем целую строку из таблицы и выбираем те данные, которые нам нужны.'''
         res = list(map(lambda x: x.value, data))
         if self.control_line(res):
             return res[self.START_SLICE: self.END_SLICE] + [res[self.NAME_PRODUCT], res[self.NUM_ORDER]]
@@ -35,17 +36,6 @@ class XLSX_Data:
 
     def __str__(self):
         return f'Строка - {self.num_row}; наименование - {self.product}'
-
-
-    '''
-    def __eq__(self, obj):
-        if type(self) == type(obj):
-            return self.sales_unit_code == obj.sales_unit_code and self.product_code == obj.product_code and self.option_number == obj.option_number and self.barcode == obj.barcode
-        else:
-            # TODO
-            # сравнение с другими объектами
-            return False
-    '''
 
 
     def __eq__(self, obj):
@@ -62,12 +52,11 @@ class XLSX_Data:
     @classmethod
     def control_line(cls, data):
         return all(data[cls.START_SLICE: cls.END_SLICE]) and data[cls.CONTROL_KG] == 'кг'
-#===========================================================================================
 
 
 class POKOM_Reader:
     '''Скачивает данные из file.
-Формирует список объектов XLSX_Data'''
+Формирует список объектов XLSX_Data. Предназначен для работы со старыми версиями заказников.'''
     def __init__(self, file):
         self.wb = openpyxl.load_workbook(file)
         self.ws = self.wb.active
@@ -76,6 +65,7 @@ class POKOM_Reader:
 
 
     def read(self):
+        '''Создаем объект класса XLSX_Data и добавляем его в список all_rows'''
         a = self.ws.iter_rows(1, self.ws.max_row + 1)
         for num, i in enumerate(a, 1):
             obj = XLSX_Data(i, num)
@@ -85,11 +75,15 @@ class POKOM_Reader:
 
     def __call__(self):
         return round(sum([i.num_order for i in self.all_rows]), 3)
-#===========================================================================================
 
 
 class OneC:
+    '''Скачивает данные из file.
+Формирует список объектов XLSX_Data. Предназначен для работы с любыми xslx-файлами. Главные условия:
+- в первом столбце находятся наименования СКЮ;
+- во втором столбце их заказ в кг!'''
     def __init__(self, file):
+        self.error = []
         self.wb = openpyxl.load_workbook(file)
         self.ws = self.wb.active
         self.keys_values = self.read()
@@ -109,11 +103,16 @@ class OneC:
             if i:
                 data = list(map(lambda x: x.value if type(x.value) in (int, float) else x.value.strip() if type(x.value) is str else None, i))
                 if data[1] and data[1] > 0:
+                    key = data[0].strip()
+                    if data[0].strip() in res:
+                        self.error.append(f'Объект - {data[0].strip()} в количестве {data[1]} не добавлен, т.к. в файле заказа данная СКЮ уже было в количестве {res[key]["value"]} в строке {res[key]["row"]}.')
+                        continue
                     res[data[0].strip()] = {'value': data[1], 'row': num}
         return res
 
 
     def find_keys(self):
+        '''Открываем файл "переводчик" и подтягиваем из него все известные ключи и их значения.'''
         file = r'moduls\1С.xlsx' # файл с ключами для поиска
         wb = openpyxl.load_workbook(file)
         ws = wb.active
@@ -127,13 +126,13 @@ class OneC:
 
 
     def translater(self):
+        '''На основе скаченных ключей, создаем объекты класса OneCData и добавляем их в список.'''
         res = []
         for i in self.keys_values:
             if i in self.translater_data:
                 res.append(OneCData(self.translater_data[i] + [i, self.keys_values[i]['value']], self.keys_values[i]['row']))
             else:
                 res.append(OneCData([None for _ in range(4)]+ [i, self.keys_values[i]['value']], self.keys_values[i]['row']))
-
         return res
 
 
@@ -142,6 +141,7 @@ class OneC:
 
 
 class OneCData:
+    '''Создаем класс со структурой подобной классу XLSX_Data, для удобного их сравнения.'''
     def __init__(self, data, number):
         self.sales_unit_code, self.product_code, self.option_number, self.barcode, self.product, self.num_order = data
         self.num_row = number
@@ -160,10 +160,11 @@ class OneCData:
         if type(value) is str:
             value = value.strip()
         object.__setattr__(self, key, value)
-#===========================================================================================
 
 
 class POKOM_Rewriter:
+    '''Основной класс. Создает списки с данными из читаемого и записываемого файла, проводит их сравнения и записывает совпавшие данные.
+Создает файл REPORT.txt с отчетом о проделанной работе.'''
     def __init__(self, read_name_file, write_name_file, flag_pocom = False):
         self.tracker = Tracker()
         if not flag_pocom: # файл ПОКОМ
@@ -171,9 +172,7 @@ class POKOM_Rewriter:
         else:
             if flag_pocom == '1С': # "С" - символ кирилицей!!!!
                 self.read_file = OneC(read_name_file)
-            # TODO
-            # выбрать клиента, для использования соответствующего класса
-            pass
+                self.tracker.error += self.read_file.error
         self.write_file = POKOM_Reader(write_name_file)
         for i in self.read_file.all_rows:
             flag = False
@@ -183,7 +182,7 @@ class POKOM_Rewriter:
                 if i == j and i.num_order:
                     flag = True
                     if self.write_file.ws[j.NAME_COL + str(j.num_row)].value:
-                        self.tracker.error.append(f'Объект - {obj1} в количестве {i.num_order} не добавлен, т.к. ячейка уже содержит значение {self.write_file.ws[j.NAME_COL + str(j.num_row)].value}.')
+                        self.tracker.error.append(f'Объект - {obj1} в количестве {i.num_order} не добавлен, т.к. ячейка {j.NAME_COL + str(j.num_row)} уже содержит значение {self.write_file.ws[j.NAME_COL + str(j.num_row)].value}.')
                         continue
                     self.write(j, i.num_order)
                     self.tracker.message.append(f'Перенос данных из {obj1} ==> {obj2}, в количестве {i.num_order}')
@@ -198,6 +197,7 @@ class POKOM_Rewriter:
 
 
     def write(self, obj, num):
+        '''Сохранение данных в бланк заказа.'''
         self.write_file.ws[obj.NAME_COL + str(obj.num_row)] = num
 
 
@@ -211,6 +211,7 @@ class Tracker:
 
 
     def create_file(self):
+        '''Создание файла с отчетом о проделанной работе.'''
         with open('REPORT.txt', 'w') as f:
             if self.error:
                 f.write(f'Обнаружены следующие ошибки:\n')
@@ -222,5 +223,3 @@ class Tracker:
             f.write(f'\nВес продукции из первого файла: {self.wight1}\n')
             f.write(f'Вес продукции во втором фале составляет: {round(self.wight2, 3)}\n')
 
-
-#file = OneC('перенос данных из 1с.xlsx')
