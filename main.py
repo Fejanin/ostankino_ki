@@ -2,7 +2,7 @@ import moduls.worker_xlsx as W
 
 
 file = input('Введите название файла: ')
-new_file = 'ЗАКАЗ КРЫМ 29,09,23ц-выезд 02,10.xlsx' #  чистый бланк
+new_file = 'ЗАКАЗ КРЫМ 06,10,23ц-выезд 08,10.xlsx' #  чистый бланк
 
 total_weight = 0 # общий вес перенесенный в бланк заказа
 good_report = []
