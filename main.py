@@ -2,7 +2,7 @@ import moduls.worker_xlsx as W
 
 
 file = input('Введите название файла: ')
-new_file = 'ЗАКАЗ КРЫМ 01,02,24ц-выезд 03,02.xlsx' #  чистый бланк
+new_file = input('Введите название бланка-завода: ') #  чистый бланк
 
 total_weight = 0 # общий вес перенесенный в бланк заказа
 good_report = []
@@ -24,6 +24,7 @@ for i in reader_data.all_keys:
     if i in translater.all_keys: # соответствие между позициями в заказе клиента и "переводчике"
         if translater.all_keys[i] in writer.all_keys:
             adress = f'E{writer.all_keys[translater.all_keys[i]]}'
+            print(adress)
             box = writer.ws[adress].value
             if box:
                 error['not_zero'].append(f'{i} {translater.all_keys[i]} невозможно внести в бланк, т.к. ячейка {adress} уже содержит значение {box}.')
